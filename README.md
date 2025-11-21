@@ -1,52 +1,68 @@
-# ☁️ Cloudflare WARP Split-Tunnel Auto-Sync
+# ☁️ warp-google-ip-sync: Cloudflare WARP Split-Tunnel Auto-Sync
 
-An automatic synchronization tool deployed as a **Cloudflare Worker** to keep your WARP Split-Tunnel **Include** list updated with the latest Google and Cloudflare IP ranges. This ensures your Zero Trust policy can securely proxy or inspect traffic to these critical services without interruption.
+This project deploys a **Cloudflare Worker** designed to automatically synchronize your WARP Split-Tunnel **Include List** with the latest official IPv4 address ranges used by Google and Cloudflare services.
 
-## 🚀 Deployment Instructions
-
-**(Same as previous instructions: 1. Create Repository, 2. Connect and Deploy via Cloudflare Dashboard, 3. Configure Worker Secrets, 4. Set Up the Cron Trigger)**
+By keeping this list current, you ensure your Zero Trust policies can accurately and reliably inspect or proxy traffic destined for these critical services.
 
 ---
 
 ## 💻 Application Logic: The Synchronization Workflow
 
-The primary goal of this Worker is to ensure the Split-Tunnel **Include List** of your WARP Device Profile is an exact, synchronized replica of the current Google and Cloudflare IP service ranges. The entire process runs on a schedule (Cron Trigger) and consists of four crucial steps:
+The Worker runs periodically (via a Cron Trigger) and executes a four-step process to ensure the WARP profile remains perfectly synchronized. **Note: This script targets IPv4 addresses only.** 
 
 ### 1. Data Collection (GET External IPs)
 
-The Worker initiates two HTTP **GET** requests to fetch the most current IP ranges used by Google for its services:
+The Worker initiates HTTP **GET** requests to fetch the most current **IPv4** ranges used by Google:
 
 * `https://www.gstatic.com/ipranges/cloud.json`
 * `https://www.gstatic.com/ipranges/goog.json`
 
-The script parses both JSON responses and aggregates all unique **IPv4** and **IPv6 CIDR ranges** into a single master list.
+It parses the responses, extracting and aggregating all unique IPv4 CIDR ranges into a single source list.
 
 ### 2. Current Profile Retrieval (GET API Data)
 
-The Worker authenticates using the `CLOUDFLARE_API_TOKEN` and performs a **GET** request to the Cloudflare Zero Trust API, targeting the specific Split-Tunnel **Include** list endpoint using the provided `ACCOUNT_ID` and `PROFILE_ID`.
+The Worker authenticates using the `CLOUDFLARE_API_TOKEN` and performs a **GET** request to the Cloudflare Zero Trust API, targeting the specified Split-Tunnel **Include** list using the provided `ACCOUNT_ID` and `PROFILE_ID`.
 
 * **Objective:** To download the **entire list** of IP ranges currently configured in the WARP profile.
 
 ### 3. Comparison and Deduplication
 
-The script then performs a comparison to maintain the integrity of the list and ensure efficiency:
+The script compares the fetched IPv4 ranges against the existing list from the API.
 
-* It checks every IP range from the Google source list against the ranges retrieved from the existing WARP profile.
-* It identifies and isolates **only the new CIDR ranges** that have appeared in the Google source since the last run. Ranges that are already present are ignored.
+* It identifies and isolates **only the new IPv4 CIDR ranges** that have appeared in the Google source since the last run.
+* This ensures that the existing list is preserved and only necessary updates are processed.
 
 ### 4. Synchronization and Update (PUT API Data)
 
-Finally, the Worker builds the complete, new list by combining:
+The Worker builds the complete, new list by combining:
 
 * The **Existing IP ranges** from the WARP profile.
-* The **New, unique Google IP ranges** identified in Step 3.
+* The **New, unique Google IPv4 ranges** identified in Step 3.
 
-This complete, merged list is then sent to the Cloudflare API via a **PUT** request. **This step is critical:** the `PUT` operation **overwrites** the existing Split-Tunnel Include list with the new, fully synchronized list. 
+This complete, merged list is then sent to the Cloudflare API via a single **PUT** request. **This PUT operation completely overwrites the existing Split-Tunnel Include list** with the new, fully synchronized list.
 
 ---
 
-## 🔑 Permissions Required
+## 🚀 Detailed Deployment Steps
 
-The **Cloudflare API Token** (`CLOUDFLARE_API_TOKEN`) used in the Worker's Secrets must have the following permission:
+Follow these steps to deploy the Worker by connecting your GitHub repository to Cloudflare.
 
-* **Zero Trust $\rightarrow$ Edit:** `Edit`
+### Prerequisites
+
+1.  A **GitHub Repository** created from this project's template.
+2.  A **Cloudflare Account**.
+3.  A **Cloudflare API Token** with the **Zero Trust $\rightarrow$ Edit** permission.
+
+### Step 1: Push Configuration Files
+
+Ensure the following two files are in the root of your GitHub repository and committed:
+
+1.  **`worker.js`**: (Your worker script file)
+2.  **`wrangler.toml`**: (The configuration file)
+
+```toml
+# wrangler.toml content for reference
+name = "warp-google-ip-sync"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+# ... (rest of the file)
