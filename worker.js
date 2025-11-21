@@ -1,8 +1,7 @@
-// --- Configuration Variables (Use Worker Secrets for real-world deployment) ---
+// --- Worker Code: index.js ---
 
-const ACCOUNT_ID = 'YOUR_CLOUDFLARE_ACCOUNT_ID'; // e.g., 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6'
-const PROFILE_ID = 'YOUR_DEVICE_PROFILE_ID'; // e.g., '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6'
-const CLOUDFLARE_API_TOKEN = 'YOUR_CLOUDFLARE_API_TOKEN'; // Requires Zero Trust:Edit permission
+// Note: ACCOUNT_ID, PROFILE_ID, and CLOUDFLARE_API_TOKEN must be set as 
+// Environment Variables (Secrets) in the Cloudflare Worker settings.
 
 const GOOGLE_IP_RANGES = [
   'https://www.gstatic.com/ipranges/cloud.json',
@@ -13,12 +12,15 @@ const API_BASE = 'https://api.cloudflare.com/client/v4';
 
 // --- Worker Handler ---
 export default {
+  // Handles the periodic execution via Cron Trigger
   async scheduled(event, env, ctx) {
+    console.log("Scheduled sync initiated...");
     ctx.waitUntil(syncGoogleIPs(env));
   },
+  // Allows manual trigger by hitting the Worker URL
   async fetch(request, env, ctx) {
     ctx.waitUntil(syncGoogleIPs(env));
-    return new Response('Cloudflare WARP Split-Tunnel sync initiated.', { status: 200 });
+    return new Response('Cloudflare WARP Split-Tunnel sync initiated. Check logs for status.', { status: 200 });
   }
 };
 
@@ -27,12 +29,18 @@ export default {
  * @param {Object} env - The Workers environment variables (containing secrets).
  */
 async function syncGoogleIPs(env) {
+  // Destructure variables from the environment object
   const { ACCOUNT_ID, PROFILE_ID, CLOUDFLARE_API_TOKEN } = env;
+
+  if (!ACCOUNT_ID || !PROFILE_ID || !CLOUDFLARE_API_TOKEN) {
+    console.error("Missing required environment variables (ACCOUNT_ID, PROFILE_ID, or CLOUDFLARE_API_TOKEN). Aborting sync.");
+    return;
+  }
 
   try {
     // 1. Fetch Google IP Ranges
     const googleIPs = await fetchGoogleIPs();
-    console.log(`Fetched ${googleIPs.length} Google IP ranges.`);
+    console.log(`Fetched ${googleIPs.length} unique Google IP ranges.`);
 
     // 2. Fetch Current Cloudflare Include List
     const existingRoutes = await fetchCurrentRoutes(ACCOUNT_ID, PROFILE_ID, CLOUDFLARE_API_TOKEN);
@@ -76,7 +84,6 @@ async function syncGoogleIPs(env) {
 
   } catch (error) {
     console.error('An error occurred during sync:', error.stack || error);
-    // You might want to add external logging here (e.g., Cloudflare Logpush)
   }
 }
 
@@ -136,14 +143,11 @@ async function fetchCurrentRoutes(accountId, profileId, apiToken) {
   }
 
   const result = await response.json();
-
-  // The 'result' object contains the list of routes
   return result.result || [];
 }
 
 /**
  * Updates the split-tunnel include list with the complete new list.
- * NOTE: This is a PUT operation and will OVERWRITE the current list.
  * @param {Array<{address: string, description: string}>} completeList - The full list of routes to set.
  * @returns {Promise<boolean>} True if the update was successful.
  */

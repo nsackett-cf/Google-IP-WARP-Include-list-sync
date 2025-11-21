@@ -4,9 +4,9 @@ An automatic synchronization tool deployed as a **Cloudflare Worker** to keep yo
 
 ## 🚀 Deployment Instructions
 
-This repository is designed to be deployed directly to Cloudflare Workers using the official **Cloudflare Worker GitHub Template** and GitHub Actions.
+This Worker is deployed using the **Cloudflare Dashboard's "Deploy with Git"** feature, which links your Cloudflare Worker to this GitHub repository for automatic updates.
 
-### 1. Create the Repository
+### 1. Create the Repository from Template
 
 Start by creating a new repository from this template:
 
@@ -14,36 +14,36 @@ Start by creating a new repository from this template:
 2.  Choose a name for your new repository (e.g., `warp-sync-worker`).
 3.  Click **"Create repository from template"**.
 
-### 2. Configure Cloudflare Credentials
+### 2. Connect and Deploy via Cloudflare Dashboard
 
-The GitHub Action needs your Cloudflare credentials to deploy the Worker.
+1.  Log into your **Cloudflare Dashboard**.
+2.  Navigate to **Workers & Pages**.
+3.  Click **"Create application"**.
+4.  Select the **"Connect to Git"** tab.
+5.  Click **"Connect GitHub"** and authorize Cloudflare to access your repository.
+6.  Select the repository you created in Step 1 (e.g., `warp-sync-worker`).
+7.  In the **Build and deployment settings**, keep the default values (Wrangler is the default build system).
+8.  Click **"Deploy"**. Cloudflare will clone your repository and deploy the worker.
 
-1.  Go to **Settings** in your new repository.
-2.  Navigate to **Security** $\rightarrow$ **Secrets and variables** $\rightarrow$ **Actions**.
-3.  Click the **"New repository secret"** button and add the following two secrets:
+### 3. Configure Worker Secrets (Environment Variables)
 
-| Secret Name | Value | Description |
-| :--- | :--- | :--- |
-| `CF_ACCOUNT_ID` | Your Cloudflare Account ID | Found on the Cloudflare dashboard homepage. |
-| `CF_API_TOKEN` | Your Cloudflare API Token | **Must have:** `Account` -> `Workers Scripts` -> `Edit` and `Zero Trust` -> `Edit` permissions. |
+The Worker requires three sensitive pieces of information to authenticate with the Cloudflare API and know which profile to update. You must set these as **Secrets** (Encrypted Environment Variables).
 
-### 3. Customize Worker Environment Variables
-
-The Worker needs specific IDs to know which WARP profile to update. These should be configured as **Worker Environment Variables** (not GitHub Secrets) to be accessed by the running Worker.
-
-1.  Go to the **Cloudflare Dashboard** and navigate to your deployed Worker (named after your repository).
+1.  In your Cloudflare dashboard, navigate to your newly deployed Worker.
 2.  Go to the **Settings** tab.
-3.  Under the **Environment Variables** section, click **"Add variable"** and add the following:
+3.  Scroll to the **Variables** section.
+
+Add the following three variables as **Secrets** (use the **"Encrypt"** toggle):
 
 | Variable Name | Value | Description |
 | :--- | :--- | :--- |
-| `ACCOUNT_ID` | Your Cloudflare Account ID | *(Same as the GitHub Secret, but needed by the Worker)* |
-| `PROFILE_ID` | Your Device Profile ID | The UUID of the WARP Profile you want to update (found in the Zero Trust dashboard URL when editing the profile). |
-| `CLOUDFLARE_API_TOKEN` | The Cloudflare API Token | *(Same as the GitHub Secret, but needed by the Worker)* |
+| `ACCOUNT_ID` | Your Cloudflare Account ID | Found on the Cloudflare dashboard homepage. |
+| `PROFILE_ID` | Your Device Profile ID | The **UUID** of the WARP Profile you want to update (found in the Zero Trust dashboard URL when editing the profile). |
+| `CLOUDFLARE_API_TOKEN` | Your Cloudflare API Token | **Must have:** `Zero Trust` $\rightarrow$ `Edit` permission. |
 
-### 4. Set Up the Cron Trigger
+### 4. Set Up the Cron Trigger (Scheduled Execution)
 
-The Worker is designed to run periodically using a Cloudflare **Cron Trigger** to ensure the IP list stays current.
+The Worker must run periodically to check for IP address changes.
 
 1.  In your deployed Worker's dashboard, go to the **Triggers** tab.
 2.  Under **Cron Triggers**, click **"Add Cron Trigger"**.
@@ -54,38 +54,15 @@ The Worker is designed to run periodically using a Cloudflare **Cron Trigger** t
 
 ## 🛠️ Worker Logic (`index.js`)
 
-The Worker executes the following steps on every scheduled run:
+The Worker runs periodically and executes the following steps:
 
-1.  **Fetch Google IPs:** Retrieves all current IPv4 and IPv6 CIDR ranges from:
-    * `https://www.gstatic.com/ipranges/cloud.json`
-    * `https://www.gstatic.com/ipranges/goog.json`
-2.  **Fetch Existing Routes:** Calls the Cloudflare Zero Trust API to get the current list of entries in the target WARP Split-Tunnel **Include** profile.
-3.  **Compare and Filter:** Compares the fetched Google IPs against the existing list, identifying only the new CIDRs that have not yet been added.
+1.  **Fetch Google IPs:** Retrieves all current IPv4 and IPv6 CIDR ranges from `cloud.json` and `goog.json`.
+2.  **Fetch Existing Routes:** Calls the Cloudflare Zero Trust API to get the **current list** of routes in the target WARP Split-Tunnel **Include** profile.
+3.  **Compare and Filter:** Compares the fetched Google IPs against the existing list, identifying only the new, unique CIDRs that have not yet been added.
 4.  **Update Profile:** Creates a complete, merged list (existing entries + new Google entries) and sends it back to the Cloudflare API via a `PUT` request. This operation **overwrites** the existing list with the synchronized, complete list.
 
-### Worker Code Snippet (Core Logic)
+### 🔑 API Token Permissions Required
 
-```javascript
-// Function to determine new routes and update the list (simplified view)
-async function syncGoogleIPs(env) {
-    // ... (fetch Google IPs and existing routes)
+The **Cloudflare API Token** (`CLOUDFLARE_API_TOKEN`) used in the Worker's Secrets must have the following permission to allow it to modify your Zero Trust policies:
 
-    const existingCIDRs = new Set(existingRoutes.map(route => route.address));
-    const routesToAdd = [];
-
-    // Only add IPs that aren't already present
-    for (const cidr of googleIPs) {
-        if (!existingCIDRs.has(cidr)) {
-            routesToAdd.push({
-                address: cidr,
-                description: 'Google Service Range (Auto-synced)'
-            });
-        }
-    }
-
-    // If there are new entries, merge and push the complete list
-    if (routesToAdd.length > 0) {
-        const newCompleteList = [...existingRoutes, ...routesToAdd];
-        await updateSplitTunnelList(env.ACCOUNT_ID, env.PROFILE_ID, env.CLOUDFLARE_API_TOKEN, newCompleteList);
-    }
-}
+* **Zero Trust $\rightarrow$ Edit:** `Edit`
