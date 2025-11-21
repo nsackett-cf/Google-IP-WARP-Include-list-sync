@@ -1,0 +1,14 @@
+name = "warp-google-ip-sync"          # 👈 Updated Application Name
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Configuration for local development
+[dev]
+port = 8787
+ip = "127.0.0.1"
+
+# Bind the environment variables/secrets you set in the Cloudflare Dashboard
+[vars]
+ACCOUNT_ID = { from = "ACCOUNT_ID" }
+PROFILE_ID = { from = "PROFILE_ID" }
+CLOUDFLARE_API_TOKEN = { from = "CLOUDFLARE_API_TOKEN" }
