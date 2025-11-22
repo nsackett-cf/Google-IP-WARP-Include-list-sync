@@ -7,12 +7,6 @@ compatibility_date = "2024-01-01"
 port = 8787
 ip = "127.0.0.1"
 
-# Bind the environment variables/secrets you set in the Cloudflare Dashboard
-[vars]
-ACCOUNT_ID = { from = "ACCOUNT_ID" }
-PROFILE_ID = { from = "PROFILE_ID" }
-CLOUDFLARE_API_TOKEN = { from = "CLOUDFLARE_API_TOKEN" }
-
 [observability]
 enabled = false
 head_sampling_rate = 1
