@@ -1,6 +1,6 @@
 # ☁️ warp-google-ip-sync: Cloudflare WARP Split-Tunnel Auto-Sync
 
-This project deploys a **Cloudflare Worker** designed to automatically synchronize your WARP Split-Tunnel **Include List** with the latest official IPv4 address ranges used by Google and Cloudflare services.
+This project deploys a **Cloudflare Worker** designed to automatically synchronize your WARP Split-Tunnel **Include List** with the latest official IPv4 address ranges used by Google services.
 
 By keeping this list current, you ensure your Zero Trust policies can accurately and reliably inspect or proxy traffic destined for these critical services without interruption.
 
