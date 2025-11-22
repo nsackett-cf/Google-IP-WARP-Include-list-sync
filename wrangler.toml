@@ -12,3 +12,10 @@ ip = "127.0.0.1"
 ACCOUNT_ID = { from = "ACCOUNT_ID" }
 PROFILE_ID = { from = "PROFILE_ID" }
 CLOUDFLARE_API_TOKEN = { from = "CLOUDFLARE_API_TOKEN" }
+
+[observability]
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
