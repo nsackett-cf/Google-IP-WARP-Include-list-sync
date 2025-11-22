@@ -2,7 +2,7 @@
 
 This project deploys a **Cloudflare Worker** designed to automatically synchronize your WARP Split-Tunnel **Include List** with the latest official IPv4 address ranges used by Google and Cloudflare services.
 
-By keeping this list current, you ensure your Zero Trust policies can accurately and reliably inspect or proxy traffic destined for these critical services.
+By keeping this list current, you ensure your Zero Trust policies can accurately and reliably inspect or proxy traffic destined for these critical services without interruption.
 
 ---
 
@@ -45,24 +45,54 @@ This complete, merged list is then sent to the Cloudflare API via a single **PUT
 
 ## 🚀 Detailed Deployment Steps
 
-Follow these steps to deploy the Worker by connecting your GitHub repository to Cloudflare.
+Follow these steps to deploy the Worker by linking your forked GitHub repository to Cloudflare.
 
 ### Prerequisites
 
-1.  A **GitHub Repository** created from this project's template.
-2.  A **Cloudflare Account**.
-3.  A **Cloudflare API Token** with the **Zero Trust $\rightarrow$ Edit** permission.
+1.  A **Cloudflare Account**.
+2.  A **Cloudflare API Token** with the **Zero Trust $\rightarrow$ Edit** permission.
 
-### Step 1: Push Configuration Files
+### Step 1: Fork and Prepare the Repository
 
-Ensure the following two files are in the root of your GitHub repository and committed:
+1.  **Fork** this repository to your personal GitHub account.
+2.  Ensure the following two files are in the root of your forked repository:
+    * **`worker.js`**: (Contains the synchronization script)
+    * **`wrangler.toml`**: (The configuration file defining the worker name)
 
-1.  **`worker.js`**: (Your worker script file)
-2.  **`wrangler.toml`**: (The configuration file)
+### Step 2: Create Application and Connect GitHub
 
-```toml
-# wrangler.toml content for reference
-name = "warp-google-ip-sync"
-main = "worker.js"
-compatibility_date = "2024-01-01"
-# ... (rest of the file)
+1.  Log into your **Cloudflare Dashboard**.
+2.  Click on **"Compute & AI"** in the sidebar.
+3.  Click **"Workers & Pages"**.
+4.  Click **"Create application"**.
+5.  On the **Workers & Pages** page, select the **"Continue with GitHub"** button.
+6.  Sign in with your GitHub account and authorize Cloudflare.
+7.  Select the repository you just **forked** (`warp-google-ip-sync` or similar) from the list.
+8.  Click **"Begin setup"**.
+9.  Review the settings (default settings are correct for a Worker).
+10. Click **"Deploy"**. Cloudflare will deploy the worker under the name specified in `wrangler.toml`.
+
+### Step 3: Configure Worker Secrets (Environment Variables)
+
+The Worker requires three variables to execute the API calls successfully. You must set these as **Secrets** (Encrypted Environment Variables) in the Cloudflare Dashboard.
+
+1.  In the Cloudflare Dashboard, navigate to your deployed Worker (`warp-google-ip-sync`).
+2.  Go to the **Settings** tab.
+3.  Scroll to the **Variables** section and add the following three variables as **Secrets** (use the **"Encrypt"** toggle):
+
+| Variable Name | Value | Description |
+| :--- | :--- | :--- |
+| **`ACCOUNT_ID`** | Your Cloudflare Account ID | Found on the Cloudflare dashboard homepage. |
+| **`PROFILE_ID`** | Your Device Profile ID (UUID) | Found in the Zero Trust dashboard URL when editing the specific WARP profile. |
+| **`CLOUDFLARE_API_TOKEN`** | Your Cloudflare API Token | **Must have Zero Trust $\rightarrow$ Edit** permission. |
+
+### Step 4: Set Up the Cron Trigger (Scheduled Execution)
+
+To ensure synchronization is continuous, set up a scheduled execution.
+
+1.  In your deployed Worker's dashboard, go to the **Triggers** tab.
+2.  Under **Cron Triggers**, click **"Add Cron Trigger"**.
+3.  Enter a schedule (e.g., `0 * * * *` to run once every hour).
+4.  Click **"Save"**.
+
+The Worker is now fully deployed and scheduled to automatically synchronize your WARP Split-Tunnel Include list.
